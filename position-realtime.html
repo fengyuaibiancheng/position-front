@@ -65,16 +65,15 @@
         <td>${timestamp.replace("T", " ")}</td>
       `;
 
-      if (row) {
-        row.innerHTML = html;
-        row.classList.add("highlight");
-        setTimeout(() => row.classList.remove("highlight"), 500);
-      } else {
+      if (!row) {
         row = document.createElement("tr");
         row.id = id;
-        row.innerHTML = html;
         body.appendChild(row);
       }
+
+      row.innerHTML = html;
+      row.classList.add("highlight");
+      setTimeout(() => row.classList.remove("highlight"), 500);
     }
 
     function connectWebSocket() {
