@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>实时位置监控</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { color: #1976d2; }
+    #status { margin-bottom: 10px; font-size: 14px; }
+    .connected { color: green; }
+    .disconnected { color: red; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px 12px; border: 1px solid #ccc; text-align: center; }
+    th { background-color: #f0f0f0; }
+    tr.highlight { background-color: #e3f2fd; transition: background-color 0.5s; }
+  </style>
+</head>
+<body>
+  <h2>实时标签位置列表</h2>
+  <div id="status" class="disconnected">连接状态：断开</div>
+  <table>
+    <thead>
+      <tr>
+        <th>标签 ID</th>
+        <th>X</th>
+        <th>Y</th>
+        <th>Z</th>
+        <th>时间戳</th>
+      </tr>
+    </thead>
+    <tbody id="position-body"></tbody>
+  </table>
+
+  <!-- SockJS + STOMP -->
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+
+  <script>
+    const statusText = document.getElementById("status");
+    const body = document.getElementById("position-body");
+    let stompClient = null;
+    let connected = false;
+
+    function updateStatus(isConnected) {
+      connected = isConnected;
+      if (isConnected) {
+        statusText.innerText = "连接状态：已连接";
+        statusText.className = "connected";
+      } else {
+        statusText.innerText = "连接状态：断开，重连中...";
+        statusText.className = "disconnected";
+      }
+    }
+
+    function updateTable(position) {
+      const { tagId, x, y, z, timestamp } = position;
+      const id = `row-${tagId}`;
+      let row = document.getElementById(id);
+
+      const html = `
+        <td>${tagId}</td>
+        <td>${x.toFixed(2)}</td>
+        <td>${y.toFixed(2)}</td>
+        <td>${z.toFixed(2)}</td>
+        <td>${timestamp.replace("T", " ")}</td>
+      `;
+
+      if (row) {
+        row.innerHTML = html;
+        row.classList.add("highlight");
+        setTimeout(() => row.classList.remove("highlight"), 500);
+      } else {
+        row = document.createElement("tr");
+        row.id = id;
+        row.innerHTML = html;
+        body.appendChild(row);
+      }
+    }
+
+    function connectWebSocket() {
+      const socket = new SockJS("http://localhost:9090/ws");
+      stompClient = Stomp.over(socket);
+      stompClient.debug = null;
+
+      stompClient.connect({}, () => {
+        updateStatus(true);
+        stompClient.subscribe("/topic/position", (msg) => {
+          const position = JSON.parse(msg.body);
+          updateTable(position);
+        });
+      }, (err) => {
+        updateStatus(false);
+        console.warn("连接失败，3秒后重试...", err);
+        setTimeout(connectWebSocket, 3000);
+      });
+    }
+
+    // 启动连接
+    connectWebSocket();
+  </script>
+</body>
+</html>
